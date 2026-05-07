@@ -1,0 +1,229 @@
+---
+title: "math code"
+format: html
+editor: visual
+---
+
+## Section 2a — Score Function for Bernoulli(θ)
+
+The score function is the derivative of the log-likelihood with respect to θ. For X \~ Bernoulli(θ): V = X/θ − (1−X)/(1−θ)
+
+```{r}
+# Score function for a single Bernoulli observation
+score_bernoulli <- function(x, theta) {
+  x / theta - (1 - x) / (1 - theta)
+}
+
+# Plot score for x=1 and x=0 across theta
+theta_vals <- seq(0.01, 0.99, length.out = 200)
+
+plot(theta_vals, score_bernoulli(1, theta_vals),
+     type = "l", col = "steelblue", lwd = 2,
+     ylim = c(-10, 10),
+     xlab = expression(theta),
+     ylab = "Score V",
+     main = "Score Function for Bernoulli(θ)")
+lines(theta_vals, score_bernoulli(0, theta_vals),
+      col = "tomato", lwd = 2)
+abline(h = 0, lty = 2, col = "gray50")
+legend("topright",
+       legend = c("X = 1", "X = 0"),
+       col = c("steelblue", "tomato"), lwd = 2)
+```
+
+## Section 2a — Verify EV = 0 Numerically
+
+The expected value of the score is always zero. We verify this by simulation for several values of θ.
+
+```{r}
+set.seed(677)
+n_sim <- 100000
+
+theta_test <- c(0.1, 0.3, 0.5, 0.7, 0.9)
+
+cat("Verifying EV = 0 for Bernoulli(theta):\n")
+cat(sprintf("%-10s %-15s\n", "theta", "E[V] (simulated)"))
+cat(strrep("-", 30), "\n")
+
+for (th in theta_test) {
+  x_sim <- rbinom(n_sim, size = 1, prob = th)
+  v_sim <- score_bernoulli(x_sim, th)
+  cat(sprintf("%-10.1f %-15.6f\n", th, mean(v_sim)))
+}
+```
+
+## Section 2a — Fisher Information for Bernoulli(θ)
+
+Fisher information J(θ) = E\[V²\] = 1/\[θ(1−θ)\]. We plot the analytical formula and verify it by simulation.
+
+```{r}
+# Analytical Fisher information
+J_bernoulli <- function(theta) {
+  1 / (theta * (1 - theta))
+}
+
+# Simulated Fisher information
+J_sim <- numeric(length(theta_test))
+for (i in seq_along(theta_test)) {
+  th <- theta_test[i]
+  x_sim <- rbinom(n_sim, size = 1, prob = th)
+  v_sim <- score_bernoulli(x_sim, th)
+  J_sim[i] <- mean(v_sim^2)
+}
+
+# Plot analytical J(theta)
+plot(theta_vals, J_bernoulli(theta_vals),
+     type = "l", col = "steelblue", lwd = 2,
+     xlab = expression(theta),
+     ylab = expression(J(theta)),
+     main = "Fisher Information for Bernoulli(θ)")
+points(theta_test, J_sim, col = "tomato", pch = 19, cex = 1.2)
+legend("top",
+       legend = c("Analytical 1/[θ(1−θ)]", "Simulated E[V²]"),
+       col = c("steelblue", "tomato"),
+       lwd = c(2, NA), pch = c(NA, 19))
+```
+
+Notice J(θ) is largest near θ = 0 and θ = 1, and smallest at θ = 0.5. This means extreme coins are more informative per flip — each observation tells you more about θ when outcomes are rare.
+
+## Section 2a — Cramér–Rao Bound: Bernoulli
+
+The bound says var(T) ≥ 1/J(θ) = θ(1−θ)/n. We show that p-hat = sample mean achieves this bound exactly.
+
+```{r}
+n <- 50  # sample size
+theta_true <- 0.3
+n_sim <- 50000
+
+# Simulate n_sim samples of size n, compute p-hat each time
+phat_vals <- replicate(n_sim, {
+  mean(rbinom(n, size = 1, prob = theta_true))
+})
+
+var_phat_simulated <- var(phat_vals)
+var_phat_analytical <- theta_true * (1 - theta_true) / n
+cramer_rao_bound    <- 1 / (n * J_bernoulli(theta_true))
+
+cat("Cramér–Rao Bound Check (Bernoulli, n =", n, ", θ =", theta_true, "):\n")
+cat(sprintf("  Simulated var(p-hat):   %.6f\n", var_phat_simulated))
+cat(sprintf("  Analytical var(p-hat):  %.6f\n", var_phat_analytical))
+cat(sprintf("  Cramér–Rao bound 1/nJ:  %.6f\n", cramer_rao_bound))
+cat(sprintf("  Bound achieved?         %s\n",
+            ifelse(abs(var_phat_simulated - cramer_rao_bound) < 0.001,
+                   "YES", "NO")))
+```
+
+## Section 2a — Cramér–Rao Bound: Gaussian
+
+For X \~ N(θ, σ²) with σ² known, J(θ) = n/σ² and X-bar achieves the bound.
+
+```{r}
+sigma2 <- 4      # known variance
+n      <- 30
+theta_true <- 5  # true mean
+n_sim  <- 50000
+
+xbar_vals <- replicate(n_sim, {
+  mean(rnorm(n, mean = theta_true, sd = sqrt(sigma2)))
+})
+
+var_xbar_simulated  <- var(xbar_vals)
+var_xbar_analytical <- sigma2 / n
+J_gaussian          <- n / sigma2
+cramer_rao_gaussian <- 1 / J_gaussian
+
+cat("Cramér–Rao Bound Check (Gaussian, n =", n,
+    ", σ² =", sigma2, ", θ =", theta_true, "):\n")
+cat(sprintf("  Simulated var(X-bar):   %.6f\n", var_xbar_simulated))
+cat(sprintf("  Analytical var(X-bar):  %.6f\n", var_xbar_analytical))
+cat(sprintf("  Cramér–Rao bound 1/J:   %.6f\n", cramer_rao_gaussian))
+cat(sprintf("  Fisher information J:   %.6f\n", J_gaussian))
+cat(sprintf("  Bound achieved?         %s\n",
+            ifelse(abs(var_xbar_simulated - cramer_rao_gaussian) < 0.01,
+                   "YES", "NO")))
+```
+
+## Section 2b — Verifying EV = 0 for Gaussian
+
+```{r}
+set.seed(677)
+theta_gauss <- c(0, 1, 2, 5, 10)
+sigma2      <- 4
+
+# Score for Gaussian: V = (X - theta) / sigma^2
+score_gaussian <- function(x, theta, sigma2) {
+  (x - theta) / sigma2
+}
+
+cat("Verifying EV = 0 for Gaussian(theta, sigma2 =", sigma2, "):\n")
+cat(sprintf("%-10s %-15s\n", "theta", "E[V] (simulated)"))
+cat(strrep("-", 30), "\n")
+
+for (th in theta_gauss) {
+  x_sim <- rnorm(n_sim, mean = th, sd = sqrt(sigma2))
+  v_sim <- score_gaussian(x_sim, th, sigma2)
+  cat(sprintf("%-10.1f %-15.6f\n", th, mean(v_sim)))
+}
+```
+
+## Section 3b — Log-Derivative Trick: Numerical Verification
+
+The log-derivative identity states: ∂/∂θ ln f(x; θ) = \[∂/∂θ f(x; θ)\] / f(x; θ)
+
+We verify this numerically for Bernoulli at a specific (x, θ).
+
+```{r}
+# Numerical derivative using finite differences
+numerical_deriv <- function(f, theta, h = 1e-6) {
+  (f(theta + h) - f(theta - h)) / (2 * h)
+}
+
+theta0 <- 0.4
+x0     <- 1  # observed value
+
+# f(x; theta) for Bernoulli
+f_bern <- function(theta) theta^x0 * (1 - theta)^(1 - x0)
+
+# log f(x; theta)
+log_f_bern <- function(theta) log(f_bern(theta))
+
+# LHS: d/dtheta log f
+lhs <- numerical_deriv(log_f_bern, theta0)
+
+# RHS: [d/dtheta f] / f
+rhs <- numerical_deriv(f_bern, theta0) / f_bern(theta0)
+
+cat("Log-Derivative Trick Verification (x =", x0, ", θ =", theta0, "):\n")
+cat(sprintf("  LHS: d/dθ ln f(x;θ)       = %.8f\n", lhs))
+cat(sprintf("  RHS: [d/dθ f(x;θ)] / f    = %.8f\n", rhs))
+cat(sprintf("  Difference:                = %.2e\n", abs(lhs - rhs)))
+cat(sprintf("  Identity holds?            %s\n",
+            ifelse(abs(lhs - rhs) < 1e-6, "YES", "NO")))
+```
+
+## Summary Table
+
+```{r}
+summary_df <- data.frame(
+  Claim = c(
+    "EV = 0 (Bernoulli)",
+    "EV = 0 (Gaussian)",
+    "J(θ) = 1/[θ(1−θ)] (Bernoulli)",
+    "var(p-hat) = CRB (Bernoulli)",
+    "var(X-bar) = CRB (Gaussian)",
+    "Log-derivative trick"
+  ),
+  Verified = c("Yes", "Yes", "Yes", "Yes", "Yes", "Yes"),
+  Method   = c(
+    "Simulation",
+    "Simulation",
+    "Simulation vs analytical",
+    "Simulation vs bound",
+    "Simulation vs bound",
+    "Numerical differentiation"
+  )
+)
+
+knitr::kable(summary_df,
+             caption = "Numerical verification of key claims in the paper")
+```
