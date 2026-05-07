@@ -9,12 +9,10 @@ editor: visual
 The score function is the derivative of the log-likelihood with respect to θ. For X \~ Bernoulli(θ): V = X/θ − (1−X)/(1−θ)
 
 ```{r}
-# Score function for a single Bernoulli observation
 score_bernoulli <- function(x, theta) {
   x / theta - (1 - x) / (1 - theta)
 }
 
-# Plot score for x=1 and x=0 across theta
 theta_vals <- seq(0.01, 0.99, length.out = 200)
 
 plot(theta_vals, score_bernoulli(1, theta_vals),
@@ -57,12 +55,10 @@ for (th in theta_test) {
 Fisher information J(θ) = E\[V²\] = 1/\[θ(1−θ)\]. We plot the analytical formula and verify it by simulation.
 
 ```{r}
-# Analytical Fisher information
 J_bernoulli <- function(theta) {
   1 / (theta * (1 - theta))
 }
 
-# Simulated Fisher information
 J_sim <- numeric(length(theta_test))
 for (i in seq_along(theta_test)) {
   th <- theta_test[i]
@@ -71,7 +67,6 @@ for (i in seq_along(theta_test)) {
   J_sim[i] <- mean(v_sim^2)
 }
 
-# Plot analytical J(theta)
 plot(theta_vals, J_bernoulli(theta_vals),
      type = "l", col = "steelblue", lwd = 2,
      xlab = expression(theta),
@@ -91,11 +86,10 @@ Notice J(θ) is largest near θ = 0 and θ = 1, and smallest at θ = 0.5. This m
 The bound says var(T) ≥ 1/J(θ) = θ(1−θ)/n. We show that p-hat = sample mean achieves this bound exactly.
 
 ```{r}
-n <- 50  # sample size
+n <- 50  
 theta_true <- 0.3
 n_sim <- 50000
 
-# Simulate n_sim samples of size n, compute p-hat each time
 phat_vals <- replicate(n_sim, {
   mean(rbinom(n, size = 1, prob = theta_true))
 })
@@ -118,9 +112,9 @@ cat(sprintf("  Bound achieved?         %s\n",
 For X \~ N(θ, σ²) with σ² known, J(θ) = n/σ² and X-bar achieves the bound.
 
 ```{r}
-sigma2 <- 4      # known variance
+sigma2 <- 4      
 n      <- 30
-theta_true <- 5  # true mean
+theta_true <- 5  
 n_sim  <- 50000
 
 xbar_vals <- replicate(n_sim, {
@@ -150,7 +144,6 @@ set.seed(677)
 theta_gauss <- c(0, 1, 2, 5, 10)
 sigma2      <- 4
 
-# Score for Gaussian: V = (X - theta) / sigma^2
 score_gaussian <- function(x, theta, sigma2) {
   (x - theta) / sigma2
 }
@@ -173,24 +166,19 @@ The log-derivative identity states: ∂/∂θ ln f(x; θ) = \[∂/∂θ f(x; θ)
 We verify this numerically for Bernoulli at a specific (x, θ).
 
 ```{r}
-# Numerical derivative using finite differences
 numerical_deriv <- function(f, theta, h = 1e-6) {
   (f(theta + h) - f(theta - h)) / (2 * h)
 }
 
 theta0 <- 0.4
-x0     <- 1  # observed value
+x0     <- 1  
 
-# f(x; theta) for Bernoulli
 f_bern <- function(theta) theta^x0 * (1 - theta)^(1 - x0)
 
-# log f(x; theta)
 log_f_bern <- function(theta) log(f_bern(theta))
 
-# LHS: d/dtheta log f
 lhs <- numerical_deriv(log_f_bern, theta0)
 
-# RHS: [d/dtheta f] / f
 rhs <- numerical_deriv(f_bern, theta0) / f_bern(theta0)
 
 cat("Log-Derivative Trick Verification (x =", x0, ", θ =", theta0, "):\n")
